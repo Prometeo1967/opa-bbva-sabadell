@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prima OPA BBVA - Sabadell (Live)</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #121212;
+      color: #f1f1f1;
+      margin: 0;
+      padding: 2rem;
+    }
+    .box {
+      background: #1e1e1e;
+      padding: 2rem;
+      max-width: 700px;
+      margin: auto;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+    }
+    .data {
+      margin: 1rem 0;
+      font-size: 1.1rem;
+    }
+    .highlight {
+      font-weight: bold;
+    }
+    button {
+      margin-top: 1rem;
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+      background: #2980b9;
+      border: none;
+      color: white;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    canvas {
+      margin-top: 2rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h2>📉 Prima OPA de BBVA sobre Banco Sabadell</h2>
+
+    <div class="data">Cotización BBVA (€): <span id="bbva">...</span></div>
+    <div class="data">Cotización Sabadell (€): <span id="sabadell">...</span></div>
+    <div class="data">Canje: 1 BBVA por 5,3456 Sabadell (→ 0.1871 BBVA/SAB)</div>
+    <div class="data">Pago en metálico: 0.70 € por 5,3456 acciones (→ 0.1309 €/SAB)</div>
+
+    <div class="data">🔍 <strong>Valor OPA por acción Sabadell:</strong> <span id="opaValue" class="highlight">...</span> €</div>
+    <div class="data">📊 <strong>Prima OPA frente a mercado:</strong> <span id="prima" class="highlight">...</span></div>
+
+    <button onclick="updateData()">🔄 Actualizar ahora</button>
+
+    <canvas id="chart" width="600" height="300"></canvas>
+  </div>
+
+  <script>
+    const ratio = 1 / 5.3456;
+    const cashPerShare = 0.70 / 5.3456;
+    const apiKey = "d1l9699r01qt4theo9qgd1l9699r01qt4theo9r0"; // ← Reemplaza con tu API Key de Finnhub
+
+    let chart;
+    const history = [];
+
+    async function fetchPrice(symbol) {
+      const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${apiKey}`);
+      const data = await res.json();
+      return data.c;
+    }
+
+    async function updateData() {
+      try {
+        const bbva = await fetchPrice("BME:BBVA");
+        const sab = await fetchPrice("BME:SAB");
+
+        const opaValue = (bbva * ratio) + cashPerShare;
+        const prima = ((opaValue / sab) - 1) * 100;
+        const timestamp = new Date().toLocaleTimeString();
+
+        document.getElementById("bbva").innerText = bbva.toFixed(2);
+        document.getElementById("sabadell").innerText = sab.toFixed(2);
+        document.getElementById("opaValue").innerText = opaValue.toFixed(3);
+        document.getElementById("prima").innerText = prima.toFixed(2) + "%";
+        document.getElementById("prima").style.color = prima < 0 ? "#e74c3c" : "#2ecc71";
+
+        history.push({ time: timestamp, prima: prima.toFixed(2) });
+        updateChart();
+      } catch (err) {
+        console.error("Error al obtener cotizaciones:", err);
+      }
+    }
+
+    function updateChart() {
+      const labels = history.map(p => p.time);
+      const data = history.map(p => p.prima);
+
+      if (!chart) {
+        const ctx = document.getElementById("chart").getContext("2d");
+        chart = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: labels,
+            datasets: [{
+              label: "% Prima",
+              data: data,
+              borderColor: "#3498db",
+              backgroundColor: "rgba(52,152,219,0.2)",
+              tension: 0.3,
+              fill: true
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              title: {
+                display: true,
+                text: "Evolución de la Prima en Tiempo Real",
+                color: "#ffffff"
+              },
+              legend: {
+                labels: { color: "#ffffff" }
+              }
+            },
+            scales: {
+              x: {
+                ticks: { color: "#ffffff" }
+              },
+              y: {
+                ticks: { color: "#ffffff" },
+                beginAtZero: true
+              }
+            }
+          }
+        });
+      } else {
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = data;
+        chart.update();
+      }
+    }
+
+    updateData();
+    setInterval(updateData, 60000);
+  </script>
+</body>
+</html>
+
